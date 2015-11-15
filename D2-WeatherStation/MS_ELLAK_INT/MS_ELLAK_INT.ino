@@ -23,8 +23,6 @@
  * Contribution by a-lurker and Anticimex,
  * Contribution by Norbert Truchsess <norbert.truchsess@t-online.de>
  * Contribution by Ivo Pullens (ESP8266 support)
- * Contribution by Manolis Nikiforakis (ESP8266 standalone)
- 
  *
  * DESCRIPTION
  * The EthernetGateway sends data received from sensors to the WiFi link.
@@ -190,9 +188,9 @@ void setup()
   init_OLED();                                    //
   reset_display();
   clear_display();
-  sendStrXY("Hello WeatherXM", 0, 0);            // OLED first message
+  sendStrXY("WeatherXM.com", 0, 0);            // OLED first message
   sendStrXY("MySensors GW", 2, 0);
-
+  sendStrXY("Connecting...", 4, 0);
 
   // Startup up the OneWire library
   sensors.begin();
@@ -231,13 +229,13 @@ void setup()
   server.setNoDelay(true);
 
   clear_display();
-  sendStrXY("WeatherXM.com", 0, 0);            // OLED first message
+  sendStrXY("WeatherXM.com", 0, 0);            
   sendStrXY("INT temp:", 2, 0);
   sendStrXY("EXT temp:", 3, 0);
   sendStrXY("Humidity:", 4, 0);
   sendStrXY("Pressure:", 5, 0);
-  sendStrXY("Wind    :", 6, 0);
-  sendStrXY("EXT VCC :", 7, 0);
+  sendStrXY("Wind:", 6, 0);
+  sendStrXY("Rain:", 6, 7);
   
   char buffer[25];
   sendStrXY( floatToString(buffer, sensors.getTempCByIndex(0), 1), 2, 10);
@@ -329,26 +327,41 @@ void incomingMessage(const MyMessage & message) {
 
   if (message.type == V_TEMP) {
     sendStrXY(message.getString(convBuf), 3, 10);
-    thingspeak("3", message.getString(convBuf));
+  //  thingspeak("3", message.getString(convBuf));
   }
   else if (message.type == V_HUM) {
     sendStrXY(message.getString(convBuf), 4, 10);
-    thingspeak("4" , message.getString(convBuf));
+  //  thingspeak("4" , message.getString(convBuf));
   }
 
   else if (message.type == V_PRESSURE) {
     sendStrXY(message.getString(convBuf), 5, 10);
-    thingspeak("5", message.getString(convBuf));
+  //  thingspeak("5", message.getString(convBuf));
   }
 
   else if (message.type == V_WIND) {
-    sendStrXY(message.getString(convBuf), 6, 10);
-    thingspeak("6", message.getString(convBuf));
+    sendStrXY(message.getString(convBuf), 6, 5);
+   // thingspeak("6", message.getString(convBuf));
   }
 
-  else if (message.type == V_VOLTAGE) {
-    sendStrXY(message.getString(convBuf), 7, 10);
-    thingspeak("7", message.getString(convBuf));
+    else if (message.type == V_RAINRATE) {
+    sendStrXY(message.getString(convBuf), 6, 12);
+  //  thingspeak("7", message.getString(convBuf));
+  }
+
+  else if (message.type == V_VAR1) {
+   // sendStrXY(message.getString(convBuf), 7, 0);
+   // thingspeak("8", message.getString(convBuf));
+  }
+
+    else if (message.type == V_VAR2) {
+   // sendStrXY(message.getString(convBuf), 7, 5);
+   // thingspeak("8", message.getString(convBuf));
+  }
+
+    else if (message.type == V_VAR3) {
+   // sendStrXY(message.getString(convBuf), 7, 10);
+   // thingspeak("8", message.getString(convBuf));
   }
 
   // also update internal temp
@@ -583,9 +596,9 @@ void thingspeak( String FieldNo, String VALUE) {
   delay(10);
 
   // Read all the lines of the reply from server and print them to Serial
-  while (client.available()) {
-    String line = client.readStringUntil('\r');
-    Serial.print(line);
-  }
+//  while (client.available()) {
+//    String line = client.readStringUntil('\r');
+//    Serial.print(line);
+//  }
 }
 

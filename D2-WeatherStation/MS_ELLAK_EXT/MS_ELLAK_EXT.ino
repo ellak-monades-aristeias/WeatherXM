@@ -19,6 +19,10 @@
  *******************************
  *
  *
+ * DESCRIPTION
+ * Early attempts for a weather station which utilizes the mysensors.org framework
+ * uses inertial sensors for wind detection, and capacitive for rain
+ * by Manolis Nikiforakis - WeatherXM.com
  */
 
 #include <SPI.h>
@@ -26,239 +30,133 @@
 #include <Wire.h>
 #include <Adafruit_BMP085.h>
 #include <SI7021.h>
-#include <RunningAverage.h>
-#include <avr/power.h>
+
+#define MY_NODE_ID 1
 
 #define BARO_CHILD 0
 #define TEMP_CHILD 1
+#define TEMP_CHILD2 2
+#define HUM_CHILD 3
+#define RAIN_CHILD 4
+#define VOLT1_CHILD 5
+#define VOLT2_CHILD 6
+#define VOLT3_CHILD 7
 
-// Child sensor ID's
-#define CHILD_ID_TEMP  1
-#define CHILD_ID_HUM   2
+#define DIGITAL_INPUT_RAIN_SENSOR 3   // Digital input for capacitive/rain sensor. 
+#define V1_SENSE_PIN 0
+#define V2_SENSE_PIN 1
+#define V3_SENSE_PIN 2
 
-#define AVERAGES 4
-
-const float ALTITUDE = 688; // <-- adapt this value to your own location's altitude.
+const float ALTITUDE = 35; // Athens, Greece = 25m <-- adapt this value to your own location's altitude.
 
 // Sleep time between reads (in seconds). Do not change this value as the forecast algorithm needs a sample every minute.
 const unsigned long SLEEP_TIME = 3000;
 
 Adafruit_BMP085 bmp = Adafruit_BMP085();      // Digital Pressure Sensor
+SI7021 si;
 MySensor gw;
 
-float lastPressure = -1;
-float lastTemp = -1;
 
-const int LAST_SAMPLES_COUNT = 5;
-float lastPressureSamples[LAST_SAMPLES_COUNT];
-
-int minuteCount = 0;
-bool firstRound = true;
-
-float dP_dt;
-
+boolean metric;
 MyMessage tempMsg(TEMP_CHILD, V_TEMP);
 MyMessage pressureMsg(BARO_CHILD, V_PRESSURE);
-MyMessage forecastMsg(BARO_CHILD, V_FORECAST);
-
-SI7021 humiditySensor;
-MyMessage msgHum(CHILD_ID_HUM, V_HUM);
-MyMessage msgTemp(CHILD_ID_TEMP, V_TEMP);
-
-#ifdef BATT_SENSOR
-MyMessage msgBatt(BATT_SENSOR, V_VOLTAGE);
-#endif
-
-RunningAverage raHum(AVERAGES);
-// Global settings
-int measureCount = 0;
-int sendBattery = 0;
-boolean isMetric = true;
-boolean highfreq = true;float lastTemperature = -100;
-int lastHumidity = -100;
-long lastBattery = -100;
-
-// HUMI_TRANSMIT_THRESHOLD tells how much the humidity should have changed since last time it was transmitted. Likewise with
-// TEMP_TRANSMIT_THRESHOLD for temperature threshold.
-#define HUMI_TRANSMIT_THRESHOLD 0.5
-#define TEMP_TRANSMIT_THRESHOLD 0.5
-
-
+MyMessage temp2Msg(TEMP_CHILD2, V_TEMP);
+MyMessage humMsg(HUM_CHILD, V_HUM);
+MyMessage rainMsg(RAIN_CHILD, V_RAINRATE);
+MyMessage v1Msg(VOLT1_CHILD, V_VAR1);
+MyMessage v2Msg(VOLT2_CHILD, V_VAR2);
+MyMessage v3Msg(VOLT3_CHILD, V_VAR3);
 void setup()
 {
   gw.begin();
-
   // Send the sketch version information to the gateway and Controller
-  gw.sendSketchInfo("Pressure Sensor", "1.1");
+  gw.sendSketchInfo("WeatherXM external unit", "1.1");
+  pinMode(DIGITAL_INPUT_RAIN_SENSOR, INPUT);
+  metric = gw.getConfig().isMetric;
 
-  if (!bmp.begin())
-  {
+  if (!bmp.begin())  {
     Serial.println("Could not find a valid BMP085 sensor, check wiring!");
     while (1) {}
   }
 
+
+  if (!si.begin())  {
+    Serial.println("Could not find a valid SI7021 sensor, check wiring!");
+    while (1) {}
+  }
+
+
   // Register sensors to gw (they will be created as child devices)
   gw.present(BARO_CHILD, S_BARO);
   gw.present(TEMP_CHILD, S_TEMP);
-  gw.present(CHILD_ID_TEMP, S_TEMP);
-  gw.present(CHILD_ID_HUM, S_HUM);
-  isMetric = gw.getConfig().isMetric;
-
-#ifdef BATT_SENSOR
-  gw.present(BATT_SENSOR, S_POWER);
-#endif
-
-
-
-  Serial.print(F("isMetric: ")); Serial.println(isMetric);
-  raHum.clear();
-  sendTempHumidityMeasurements(false);
-  sendBattLevel(false);
-
-
-
+  gw.present(TEMP_CHILD2, S_TEMP);
+  gw.present(HUM_CHILD, S_HUM);
+  gw.present(RAIN_CHILD, S_RAIN);
+  gw.present(VOLT1_CHILD, S_MULTIMETER);
+  gw.present(VOLT2_CHILD, S_MULTIMETER);
+  gw.present(VOLT3_CHILD, S_MULTIMETER);
 }
 
 void loop()
 {
   float pressure = bmp.readSealevelPressure(ALTITUDE) / 100.0;
+  //float pressure = bmp.readPressure()/100;
   float temperature = bmp.readTemperature();
 
-  if (!isMetric)
-  {
+  si7021_env sidata = si.getHumidityAndTemperature();
+  float temp2 = sidata.celsiusHundredths / 100;
+  int hum =  sidata.humidityPercent ;
+
+  Serial.print("Temperature2 = ");
+  Serial.print(temp2);
+  Serial.println(metric ? " *C" : " *F");
+  //gw.send(temp2Msg.set(temp2, TEMP_CHILD2));
+
+  Serial.print("Humidity = ");
+  Serial.println(hum);
+  gw.send(humMsg.set(hum, HUM_CHILD));
+
+  if (!metric)  {
     // Convert to fahrenheit
     temperature = temperature * 9.0 / 5.0 + 32.0;
   }
 
-
   Serial.print("Temperature = ");
   Serial.print(temperature);
-  Serial.println(isMetric ? " *C" : " *F");
+  Serial.println(metric ? " *C" : " *F");
+  gw.send(tempMsg.set(temperature, TEMP_CHILD));
+
   Serial.print("Pressure = ");
   Serial.print(pressure);
   Serial.println(" hPa");
+  gw.send(pressureMsg.set(pressure, BARO_CHILD));
 
+  int rainValue = digitalRead(DIGITAL_INPUT_RAIN_SENSOR);
+  Serial.print("Rain = ");
+  Serial.println(rainValue);
+  gw.send(rainMsg.set((byte)rainValue));
 
-  if (temperature != lastTemp)
-  {
-    gw.send(tempMsg.set(temperature, 1));
-    lastTemp = temperature;
-  }
+  // get the battery Voltage
+  int v1 = analogRead(V1_SENSE_PIN);
+  Serial.print("Volt1 = ");
+  Serial.println(v1*2*3.3/1023);
+  gw.send(v1Msg.set( v1*2*3.3/1000 , VOLT1_CHILD));
 
-  if (pressure != lastPressure)
-  {
-    gw.send(pressureMsg.set(pressure, 0));
-    lastPressure = pressure;
-  }
+  int v2 = analogRead(V2_SENSE_PIN);
+  Serial.print("Volt2 = ");
+  Serial.println(v2*2*3.3/1023);
+  gw.send(v2Msg.set( v2*2*3.3/1023 , VOLT2_CHILD));
+
+  int v3 = analogRead(V3_SENSE_PIN);
+  Serial.print("Volt3 = ");
+  Serial.println(v3*2*3.3/1023);
+  gw.send(v3Msg.set( v3*2*3.3/1023 , VOLT3_CHILD));
+
+  //gw.sendBatteryLevel(sensorValue);
 
 
   gw.sleep(SLEEP_TIME);
-}
 
-
-/*********************************************
- *
- * Sends temperature and humidity from Si7021 sensor
- *
- * Parameters
- * - force : Forces transmission of a value (even if it's the same as previous measurement)
- *
- *********************************************/
-void sendTempHumidityMeasurements(bool force)
-{
-  bool tx = force;
-  
-  si7021_env data = humiditySensor.getHumidityAndTemperature();
-  float oldAvgHum = raHum.getAverage();
-  
-  raHum.addValue(data.humidityPercent);
-  
-  float diffTemp = abs(lastTemperature - (isMetric ? data.celsiusHundredths : data.fahrenheitHundredths)/100);
-  float diffHum = abs(oldAvgHum - raHum.getAverage());
-
-  Serial.print(F("TempDiff :"));Serial.println(diffTemp);
-  Serial.print(F("HumDiff  :"));Serial.println(diffHum); 
-
-  if (isnan(diffHum)) tx = true; 
-  if (diffTemp > TEMP_TRANSMIT_THRESHOLD) tx = true;
-  if (diffHum >= HUMI_TRANSMIT_THRESHOLD) tx = true;
-
-  if (tx) {
-    measureCount = 0;
-    float temperature = (isMetric ? data.celsiusHundredths : data.fahrenheitHundredths) / 100.0;
-     
-    int humidity = data.humidityPercent;
-    Serial.print("T: ");Serial.println(temperature);
-    Serial.print("H: ");Serial.println(humidity);
-    
-    gw.send(msgTemp.set(temperature,1));
-    gw.send(msgHum.set(humidity));
-    lastTemperature = temperature;
-    lastHumidity = humidity;
-
-
-    sendTempHumidityMeasurements(true);
-    sendBattLevel(true);
-  }
-}
-
-/********************************************
- *
- * Sends battery information (battery percentage)
- *
- * Parameters
- * - force : Forces transmission of a value
- *
- *******************************************/
-void sendBattLevel(bool force)
-{
-  if (force) lastBattery = -1;
-  long vcc = readVcc();
-  if (vcc != lastBattery) {
-    lastBattery = vcc;
-
-#ifdef BATT_SENSOR
-    gw.send(msgBatt.set(vcc));
-#endif
-
-    // Calculate percentage
-
-    vcc = vcc - 1900; // subtract 1.9V from vcc, as this is the lowest voltage we will operate at
-    
-    long percent = vcc / 14.0;
-    gw.sendBatteryLevel(percent);
-  }
-}
-
-/*******************************************
- *
- * Internal battery ADC measuring 
- *
- *******************************************/
-long readVcc() {
-  // Read 1.1V reference against AVcc
-  // set the reference to Vcc and the measurement to the internal 1.1V reference
-  #if defined(__AVR_ATmega32U4__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
-    ADMUX = _BV(REFS0) | _BV(MUX4) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
-  #elif defined (__AVR_ATtiny24__) || defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__)
-    ADMUX = _BV(MUX5) | _BV(MUX0);
-  #elif defined (__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
-    ADcdMUX = _BV(MUX3) | _BV(MUX2);
-  #else
-    ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
-  #endif  
- 
-  delay(2); // Wait for Vref to settle
-  ADCSRA |= _BV(ADSC); // Start conversion
-  while (bit_is_set(ADCSRA,ADSC)); // measuring
- 
-  uint8_t low  = ADCL; // must read ADCL first - it then locks ADCH  
-  uint8_t high = ADCH; // unlocks both
- 
-  long result = (high<<8) | low;
- 
-  result = 1125300L / result; // Calculate Vcc (in mV); 1125300 = 1.1*1023*1000
-  return result; // Vcc in millivolts
 }
 
 
