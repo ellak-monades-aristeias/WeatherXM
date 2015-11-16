@@ -43,6 +43,7 @@
 ([Περισσότερα](<https://github.com/ellak-monades-aristeias/WeatherXM/tree/master/D4-PCB-Enclosure>))
 
 ## Σε ποίους απευθύνεται - Κοινότητες Χρηστών - Προγραμματιστών(Developers) ##
+...
 
 ## Κόστος ##
  - χαμηλό συνολικό κόστος (λιγότερο από 100€) 
