@@ -46,6 +46,7 @@
 
 ## Κόστος ##
  - χαμηλό συνολικό κόστος (λιγότερο από 100€) 
- - 
+ 
+
 ## Άδεια χρήσης ##
 Τα παραδοτέα συμμορφώνονται με το Open Source Hardware Definition v1.0 με άδεια Creative Commons - Attribution - ShareAlike 3.0  για τα σχέδια/κυκλώματα. Ο κωδικάς ειναι Open Source Licensing GPL V2 
