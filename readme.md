@@ -43,6 +43,9 @@
 Παράλληλα μελετάμε θέματα διάστασης/layout custom πλακέτας PCB για το hardware. Έχοντας τις τελικές διαστάσεις θα προχωρήσουμε στο σχεδιασμό custom 3d printed ABS plastic enclosure, που να μπορεί να φιλοξενήσει τους εξωτερικούς/εσωτερικούς αισθητήρες, το φωτοβολταϊκό, και τα υπόλοιπα ηλεκτρονικά, μπαταρίες κτλ.
 ([Περισσότερα](<https://github.com/ellak-monades-aristeias/WeatherXM/tree/master/D4-PCB-Enclosure>))
 
+## Σε ποίους απευθύνεται - Κοινότητες Χρηστών - Προγραμματιστών(Developers) ##
+
+## Κόστος ##
 
 ## Άδεια χρήσης ##
 Τα παραδοτέα συμμορφώνονται με το Open Source Hardware Definition v1.0 με άδεια Creative Commons - Attribution - ShareAlike 3.0  για τα σχέδια/κυκλώματα. Ο κωδικάς ειναι Open Source Licensing GPL V2 
